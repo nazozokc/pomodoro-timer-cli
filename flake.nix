@@ -8,56 +8,36 @@
   outputs =
     { self, nixpkgs }:
     let
-      systems = [
-        "x86_64-linux"
-        "x86_64-darwin"
-        "aarch64-darwin"
-      ];
-      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (nixpkgs.legacyPackages.${system}));
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
     in
     {
-      packages = forAllSystems (
-        { pkgs }:
-        {
-          default = pkgs.stdenv.mkDerivation {
-            pname = "pomodoro-cli";
-            version = "1.0.0";
+      packages.x86_64-linux.default = pkgs.stdenv.mkDerivation {
+        pname = "pomodoro-cli";
+        version = "1.0.0";
+        src = self;
+        buildInputs = [
+          pkgs.nodejs_20
+          pkgs.pnpm
+        ];
+        buildPhase = ''
+          pnpm install --frozen-lockfile --ignore-scripts
+        '';
+        installPhase = ''
+          mkdir -p $out/bin
+          cp src/index.js $out/bin/pomodoro
+          chmod +x $out/bin/pomodoro
+        '';
+        postFixup = ''
+          substituteInPlace $out/bin/pomodoro \
+            --replace '#!/usr/bin/env node' '#!${pkgs.nodejs_20}/bin/node'
+        '';
+      };
 
-            src = ./.;
-
-            buildInputs = [
-              pkgs.nodejs_20
-              pkgs.pnpm
-            ];
-
-            buildPhase = ''
-              pnpm install --frozen-lockfile --ignore-scripts
-            '';
-
-            installPhase = ''
-              mkdir -p $out/bin
-              cp src/index.js $out/bin/pomodoro
-              chmod +x $out/bin/pomodoro
-            '';
-
-            postFixup = ''
-              substituteInPlace $out/bin/pomodoro \
-                --replace '#!/usr/bin/env node' '#!${pkgs.nodejs_20}/bin/node'
-            '';
-          };
-        }
-      );
-
-      devShells = forAllSystems (
-        { pkgs }:
-        {
-          default = pkgs.mkShell {
-            buildInputs = [
-              pkgs.nodejs_20
-              pkgs.pnpm
-            ];
-          };
-        }
-      );
+      devShells.x86_64-linux.default = pkgs.mkShell {
+        buildInputs = [
+          pkgs.nodejs_20
+          pkgs.pnpm
+        ];
+      };
     };
 }
