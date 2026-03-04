@@ -28,5 +28,4 @@ jobs:
         run: nix build .#
 
       - name: Run CLI (version check)
-        run: pomodoro --version
-
+        run: ./result/bin/pomodoro --version
