@@ -23,7 +23,7 @@ let timerState = {
   isPaused: false,
 };
 
-// ANSI helpers
+// ── ANSI helpers ─────────────────────────────────────────
 const c = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
@@ -33,83 +33,111 @@ const c = {
   yellow: '\x1b[33m',
   cyan: '\x1b[36m',
   white: '\x1b[97m',
-  bgRed: '\x1b[41m',
-  bgGreen: '\x1b[42m',
-  bgCyan: '\x1b[46m',
 };
 
+// logUpdate.clear() してから consola を呼ぶラッパー
+// → ボックスが残ったまま新行が追加される問題を防ぐ
+function log(type, msg) {
+  logUpdate.clear();
+  consola[type](msg);
+}
+
+// ── 文字幅計算（絵文字=2, 通常=1）────────────────────────
+function displayWidth(str) {
+  const plain = str.replace(/\x1b\[[0-9;]*m/g, '');
+  let width = 0;
+  for (const ch of plain) {
+    const cp = ch.codePointAt(0);
+    if (
+      (cp >= 0x1F000 && cp <= 0x1FFFF) ||
+      (cp >= 0x2600 && cp <= 0x27BF) ||
+      (cp >= 0x3000 && cp <= 0x9FFF) ||
+      (cp >= 0xF900 && cp <= 0xFAFF) ||
+      (cp >= 0xFE30 && cp <= 0xFE4F) ||
+      (cp >= 0xFF00 && cp <= 0xFF60)
+    ) {
+      width += 2;
+    } else {
+      width += 1;
+    }
+  }
+  return width;
+}
+
+function padDisplay(str, len, char = ' ') {
+  const pad = Math.max(0, len - displayWidth(str));
+  return str + char.repeat(pad);
+}
+
+// ── タイマー表示 ──────────────────────────────────────────
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
   const s = (seconds % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
 
-function getProgressBar(remaining, total, width = 24) {
+function getProgressBar(remaining, total, width = 22) {
   const ratio = Math.max(0, Math.min(1, (total - remaining) / total));
   const filled = Math.floor(ratio * width);
   const empty = width - filled;
   return `${c.green}${'█'.repeat(filled)}${c.reset}${c.dim}${'░'.repeat(empty)}${c.reset}`;
 }
 
-// Pad a raw string (with ANSI codes) to visible length `len`
-function padVisible(str, len, char = ' ') {
-  const visible = str.replace(/\x1b\[[0-9;]*m/g, '');
-  const pad = Math.max(0, len - visible.length);
-  return str + char.repeat(pad);
-}
-
 function renderTimer() {
   const { state, remaining, session, totalSessions, isPaused } = timerState;
 
-  // ── State-specific config ─────────────────────────────
   let stateLabel, accentColor, totalTime;
   switch (state) {
     case STATE.WORKING:
-      stateLabel = '作業中  🍅';
+      stateLabel = `作業中 🍅`;
       accentColor = c.red;
       totalTime = WORK_TIME;
       break;
     case STATE.BREAK:
-      stateLabel = '休憩中  ☕';
+      stateLabel = `休憩中 ☕`;
       accentColor = c.green;
       totalTime = remaining <= SHORT_BREAK ? SHORT_BREAK : LONG_BREAK;
       break;
     default:
-      stateLabel = '待機中  💤';
+      stateLabel = `待機中 💤`;
       accentColor = c.cyan;
       totalTime = WORK_TIME;
   }
 
+  // ボックス内の表示幅（「│ 」「 │」を除いた幅）
+  const W = 31;
+
   const timeStr = `${c.bold}${accentColor}${formatTime(remaining)}${c.reset}`;
-  const bar = getProgressBar(remaining, totalTime);
   const sessionStr = state !== STATE.IDLE
-    ? `${c.dim}${session}/${totalSessions}${c.reset}`
-    : `${c.dim}─/─${c.reset}`;
-  const pauseStr = isPaused
-    ? `  ${c.yellow}⏸ 停止中${c.reset}`
-    : '';
+    ? `${c.dim}${session} / ${totalSessions}${c.reset}`
+    : `${c.dim}─ / ─${c.reset}`;
+  const pauseStr = isPaused ? `  ${c.yellow}⏸ 一時停止${c.reset}` : '';
 
-  // Inner width (visible chars between │ and │, including 2-space indent each side)
-  const W = 33;
+  const bar = getProgressBar(remaining, totalTime);
 
-  const line = (inner) => ` │ ${padVisible(inner, W - 2)} │`;
+  // タイトルをセンタリング
+  const titleRaw = `🍅  Pomodoro Timer  🍅`;
+  const titlePad = Math.max(0, Math.floor((W - displayWidth(titleRaw)) / 2));
+  const titleLine = ' '.repeat(titlePad) + `${c.bold}${c.white}${titleRaw}${c.reset}`;
 
-  const sep = ` ├${'─'.repeat(W)}┤`;
-  const top = ` ╭${'─'.repeat(W)}╮`;
-  const bot = ` ╰${'─'.repeat(W)}╯`;
+  const border = '─'.repeat(W + 2);
+  const top = ` ╭${border}╮`;
+  const sep = ` ├${border}┤`;
+  const bot = ` ╰${border}╯`;
+  const empty = ` │ ${' '.repeat(W)} │`;
 
-  const title = `${c.bold}${c.white}🍅  Pomodoro Timer  🍅${c.reset}`;
+  const row = (inner) => ` │ ${padDisplay(inner, W)} │`;
 
   const rows = [
     '',
     top,
-    line(padVisible(title, W - 2)),        // title (centered manually via spaces)
+    row(titleLine),
     sep,
-    line(''),
-    line(`  ${timeStr}   ${sessionStr}${pauseStr}`),
-    line(`  ${bar}`),
-    line(`  ${stateLabel}`),
-    line(''),
+    empty,
+    row(`  ${timeStr}    ${sessionStr}${pauseStr}`),
+    row(`  ${bar}`),
+    row(`  ${stateLabel}`),
+    empty,
     bot,
     '',
   ];
@@ -117,6 +145,7 @@ function renderTimer() {
   logUpdate(rows.join('\n'));
 }
 
+// ── タイマーロジック ──────────────────────────────────────
 async function tick() {
   if (timerState.state === STATE.IDLE || timerState.isPaused) return;
 
@@ -135,17 +164,17 @@ async function handleTimerComplete() {
     if (timerState.session >= SESSIONS_BEFORE_LONG_BREAK) {
       timerState.state = STATE.BREAK;
       timerState.remaining = LONG_BREAK;
-      consola.success('🎉 4セッション完了！長い休憩に入りましょう (15分)');
+      log('success', '🎉 4セッション完了！長い休憩に入りましょう (15分)');
       timerState.session = 1;
     } else {
       timerState.state = STATE.BREAK;
       timerState.remaining = SHORT_BREAK;
-      consola.success(`🍅 セッション${timerState.session}完了！休憩しましょう (5分)`);
+      log('success', `🍅 セッション${timerState.session}完了！休憩しましょう (5分)`);
       timerState.isPaused = false;
     }
   } else {
     if (timerState.remaining === LONG_BREAK) {
-      consola.success('長い休憩終了！新しいポモドーロを始めましょう');
+      log('success', '長い休憩終了！新しいポモドーロを始めましょう');
       timerState.state = STATE.IDLE;
       timerState.isPaused = false;
     } else {
@@ -175,6 +204,7 @@ function stopTimerLoop() {
   }
 }
 
+// ── メニュー ──────────────────────────────────────────────
 async function showMenu() {
   return select({
     message: 'アクションを選択:',
@@ -189,7 +219,7 @@ async function showMenu() {
 }
 
 async function handleSettings() {
-  const currentValues = {
+  const cur = {
     work: Math.floor(WORK_TIME / 60),
     shortBreak: Math.floor(SHORT_BREAK / 60),
     longBreak: Math.floor(LONG_BREAK / 60),
@@ -199,10 +229,10 @@ async function handleSettings() {
   const setting = await select({
     message: '設定を変更:',
     choices: [
-      { name: `作業時間   (現在: ${currentValues.work}分)`, value: 'work' },
-      { name: `短い休憩   (現在: ${currentValues.shortBreak}分)`, value: 'shortBreak' },
-      { name: `長い休憩   (現在: ${currentValues.longBreak}分)`, value: 'longBreak' },
-      { name: `セッション数 (現在: ${currentValues.sessions})`, value: 'sessions' },
+      { name: `作業時間    (現在: ${cur.work}分)`, value: 'work' },
+      { name: `短い休憩    (現在: ${cur.shortBreak}分)`, value: 'shortBreak' },
+      { name: `長い休憩    (現在: ${cur.longBreak}分)`, value: 'longBreak' },
+      { name: `セッション数 (現在: ${cur.sessions})`, value: 'sessions' },
       { name: '← 戻る', value: 'back' },
     ],
   });
@@ -211,7 +241,7 @@ async function handleSettings() {
 
   const value = await input({
     message: `${setting} の値を入力 (分):`,
-    default: currentValues[setting].toString(),
+    default: cur[setting].toString(),
     validate: (v) => (!isNaN(v) && parseInt(v) > 0) || '正の数を入力してください',
   });
 
@@ -221,23 +251,24 @@ async function handleSettings() {
     case 'work':
       WORK_TIME = minutes * 60;
       if (timerState.state === STATE.IDLE) timerState.remaining = WORK_TIME;
-      consola.success(`作業時間を ${minutes} 分に設定しました`);
+      log('success', `作業時間を ${minutes} 分に設定しました`);
       break;
     case 'shortBreak':
       SHORT_BREAK = minutes * 60;
-      consola.success(`短い休憩を ${minutes} 分に設定しました`);
+      log('success', `短い休憩を ${minutes} 分に設定しました`);
       break;
     case 'longBreak':
       LONG_BREAK = minutes * 60;
-      consola.success(`長い休憩を ${minutes} 分に設定しました`);
+      log('success', `長い休憩を ${minutes} 分に設定しました`);
       break;
     case 'sessions':
       timerState.totalSessions = minutes;
-      consola.success(`セッション数を ${minutes} に設定しました`);
+      log('success', `セッション数を ${minutes} に設定しました`);
       break;
   }
 }
 
+// ── エントリポイント ──────────────────────────────────────
 async function main() {
   startTimerLoop();
   renderTimer();
@@ -252,13 +283,13 @@ async function main() {
           timerState.remaining = WORK_TIME;
         }
         timerState.isPaused = false;
-        consola.info('タイマーを開始しました');
+        log('info', 'タイマーを開始しました');
         renderTimer();
         break;
 
       case 'stop':
         timerState.isPaused = true;
-        consola.info('タイマーを停止しました');
+        log('info', 'タイマーを一時停止しました');
         renderTimer();
         break;
 
@@ -267,8 +298,7 @@ async function main() {
         timerState.remaining = WORK_TIME;
         timerState.session = 1;
         timerState.isPaused = false;
-        logUpdate.clear();
-        consola.info('タイマーをリセットしました');
+        log('info', 'タイマーをリセットしました');
         renderTimer();
         break;
 
@@ -293,3 +323,4 @@ process.on('SIGINT', () => {
 });
 
 main();
+
