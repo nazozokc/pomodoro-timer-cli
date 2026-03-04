@@ -12,13 +12,16 @@
       pkgs = nixpkgs.legacyPackages.${system};
     in
     {
-      packages.${system}.default = pkgs.buildNpmPackage {
+      packages.${system}.default = pkgs.buildPnpmPackage {
         pname = "pomodoro-cli";
         version = "1.0.0";
 
         src = pkgs.lib.cleanSource ./.;
 
-        npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+        # 最初は fakeHash
+        pnpmDepsHash = pkgs.lib.fakeHash;
+
+        nodejs = pkgs.nodejs_20;
 
         installPhase = ''
           mkdir -p $out/bin
@@ -30,8 +33,6 @@
           substituteInPlace $out/bin/pomodoro \
             --replace '#!/usr/bin/env node' '#!${pkgs.nodejs_20}/bin/node'
         '';
-
-        nodejs = pkgs.nodejs_20;
       };
 
       devShells.${system}.default = pkgs.mkShell {
