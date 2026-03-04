@@ -18,7 +18,7 @@
 
         src = pkgs.lib.cleanSource ./.;
 
-        npmDepsHash = pkgs.lib.fakeHash;
+        npmDepsHash = sha256-L8rYb+Nt45DHBJNguobhtG1IuujvnOSDbTsYVndXoN4=;
         nodejs = pkgs.nodejs_20;
 
         installPhase = ''
