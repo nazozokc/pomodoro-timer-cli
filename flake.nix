@@ -23,10 +23,6 @@
 
         dontNpmBuild = true;
 
-        postFixup = ''
-          substituteInPlace $out/bin/pomodoro \
-            --replace '#!/usr/bin/env node' '#!${pkgs.nodejs_20}/bin/node'
-        '';
       };
 
       apps.${system}.default = {
