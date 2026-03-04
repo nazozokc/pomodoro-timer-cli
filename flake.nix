@@ -18,7 +18,7 @@
 
         src = pkgs.lib.cleanSource ./.;
 
-        npmDepsHash = lib.fakeSha256;
+        npmDepsHash = lib.fake.Sha256;
         nodejs = pkgs.nodejs_20;
 
         dontNpmBuild = true;
