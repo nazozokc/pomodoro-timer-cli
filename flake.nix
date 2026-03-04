@@ -12,15 +12,13 @@
       pkgs = nixpkgs.legacyPackages.${system};
     in
     {
-      packages.${system}.default = pkgs.buildPnpmPackage {
+      packages.${system}.default = pkgs.buildNpmPackage {
         pname = "pomodoro-cli";
         version = "1.0.0";
 
         src = pkgs.lib.cleanSource ./.;
 
-        # 最初は fakeHash
-        pnpmDepsHash = pkgs.lib.fakeHash;
-
+        npmDepsHash = pkgs.lib.fakeHash;
         nodejs = pkgs.nodejs_20;
 
         installPhase = ''
@@ -38,7 +36,7 @@
       devShells.${system}.default = pkgs.mkShell {
         packages = [
           pkgs.nodejs_20
-          pkgs.pnpm
+          pkgs.npm
         ];
       };
     };
