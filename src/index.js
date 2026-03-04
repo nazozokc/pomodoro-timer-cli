@@ -101,7 +101,7 @@ function renderTimer() {
   let stateLabel, accentColor, totalTime;
   switch (state) {
     case STATE.WORKING:
-      stateLabel = `作業中 🍅`;
+      stateLabel = `作業中 `;
       accentColor = c.red;
       totalTime = WORK_TIME;
       break;
@@ -128,7 +128,7 @@ function renderTimer() {
   const bar = getProgressBar(remaining, totalTime);
 
   // タイトルをセンタリング
-  const titleRaw = `🍅  Pomodoro Timer  🍅`;
+  const titleRaw = `  Pomodoro Timer  `;
   const titlePad = Math.max(0, Math.floor((W - displayWidth(titleRaw)) / 2));
   const titleLine = ' '.repeat(titlePad) + `${c.bold}${c.white}${titleRaw}${c.reset}`;
 
@@ -181,7 +181,7 @@ async function handleTimerComplete() {
     } else {
       timerState.state = STATE.BREAK;
       timerState.remaining = SHORT_BREAK;
-      log('success', `🍅 セッション${timerState.session}完了！休憩しましょう (5分)`);
+      log('success', ` セッション${timerState.session}完了！休憩しましょう (5分)`);
       timerState.isPaused = false;
     }
   } else {
