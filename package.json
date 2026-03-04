@@ -1,0 +1,27 @@
+{
+  "name": "pomodoro-cli",
+  "version": "1.0.0",
+  "description": "CLI Pomodoro Timer",
+  "main": "src/index.js",
+  "type": "module",
+  "bin": {
+    "pomodoro": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "pomodoro",
+    "timer",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@inquirer/prompts": "^8.3.0",
+    "commander": "^14.0.3",
+    "consola": "^3.4.2",
+    "log-update": "^7.2.0"
+  }
+}
