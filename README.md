@@ -12,7 +12,7 @@
 ## インストール
 
 ```bash
-npm install -g .
+nix profile add github:nazozokc/pomodoro-cli?ref=v1.2.0
 ```
 
 ## 使い方
