@@ -5,7 +5,6 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import logUpdate from 'log-update';
-import consola from 'consola';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -41,33 +40,15 @@ let isMenuOpen = false;
 const c = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
-  dim: '\x1b[2m',
-  italic: '\x1b[3m',
-
-  // Foreground
-  black: '\x1b[30m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
   yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
   white: '\x1b[97m',
   gray: '\x1b[90m',
-
-  // 256-color
   amber: '\x1b[38;5;214m',
-  gold: '\x1b[38;5;220m',
-  coral: '\x1b[38;5;203m',
   mint: '\x1b[38;5;121m',
   slate: '\x1b[38;5;246m',
   charcoal: '\x1b[38;5;238m',
   smoke: '\x1b[38;5;242m',
 };
-
-function log(type, msg) {
-  consola[type](msg);
-}
 
 // ── 文字幅計算 ────────────────────────────────────────────
 function displayWidth(str) {
@@ -96,7 +77,7 @@ function padDisplay(str, len, char = ' ') {
   return str + char.repeat(pad);
 }
 
-function center(str, width) {
+function centerStr(str, width) {
   const w = displayWidth(str);
   const left = Math.floor((width - w) / 2);
   const right = width - w - left;
@@ -110,31 +91,24 @@ function formatTime(seconds) {
   return `${m}:${s}`;
 }
 
-// ブロック系プログレスバー（セグメント型）
-function getProgressBar(remaining, total, width = 24) {
+function getProgressBar(remaining, total, width = 26) {
   const ratio = Math.max(0, Math.min(1, (total - remaining) / total));
-  const filled = Math.round(ratio * width);
-  const empty = width - filled;
-
-  const isWork = timerState.state === STATE.WORKING;
-  const fillColor = isWork ? c.amber : c.mint;
-
-  // 8分の1ブロックで滑らかに
   const parts = ['▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
   const exactFilled = ratio * width;
   const wholeFilled = Math.floor(exactFilled);
   const frac = exactFilled - wholeFilled;
   const fracChar = frac > 0 ? parts[Math.floor(frac * 8)] : '';
+  const empty = width - wholeFilled - (fracChar ? 1 : 0);
+  const isWork = timerState.state === STATE.WORKING;
+  const fillColor = isWork ? c.amber : c.mint;
 
-  const bar =
+  return (
     `${fillColor}${'█'.repeat(wholeFilled)}` +
     (fracChar ? `${fillColor}${fracChar}` : '') +
-    `${c.reset}${c.charcoal}${'▒'.repeat(Math.max(0, empty - (fracChar ? 1 : 0)))}${c.reset}`;
-
-  return bar;
+    `${c.reset}${c.charcoal}${'▒'.repeat(Math.max(0, empty))}${c.reset}`
+  );
 }
 
-// ドット型セッションインジケーター
 function getSessionDots(session, total) {
   const dots = [];
   for (let i = 1; i <= total; i++) {
@@ -150,34 +124,35 @@ function getSessionDots(session, total) {
   return dots.join(' ');
 }
 
+// ── 画面操作 ──────────────────────────────────────────────
+function clearScreen() {
+  process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
+}
+
 // ── タイマー描画 ──────────────────────────────────────────
 function renderTimer() {
   if (isMenuOpen) return;
+
   const { state, remaining, session, totalSessions, isPaused } = timerState;
 
   const isIdle = state === STATE.IDLE;
   const isWorking = state === STATE.WORKING;
   const isBreak = state === STATE.BREAK;
 
-  // アクセントカラー
   const accent = isWorking ? c.amber : isBreak ? c.mint : c.slate;
 
-  // 状態ラベル
   const stateLabel = isWorking
     ? `${accent}FOCUS${c.reset}`
     : isBreak
       ? `${accent}BREAK${c.reset}`
       : `${c.slate}IDLE${c.reset}`;
 
-  // 総時間
   const totalTime = isWorking
     ? WORK_TIME
     : isBreak
       ? (remaining <= SHORT_BREAK ? SHORT_BREAK : LONG_BREAK)
       : WORK_TIME;
 
-  // ── ボックス設定 ──
-  // 内幅（│ と │ の間のスペースを除いた文字幅）
   const W = 33;
 
   const top = `${c.gray}╭${'─'.repeat(W + 2)}╮${c.reset}`;
@@ -185,60 +160,28 @@ function renderTimer() {
   const bot = `${c.gray}╰${'─'.repeat(W + 2)}╯${c.reset}`;
   const blank = () => `${c.gray}│${c.reset} ${' '.repeat(W)} ${c.gray}│${c.reset}`;
   const row = (inner) => `${c.gray}│${c.reset} ${padDisplay(inner, W)} ${c.gray}│${c.reset}`;
-  const rowC = (inner) => row(center(inner, W));
 
-  // ── 時刻（ビッグ） ──
   const timeDisplay = `${c.bold}${accent}${formatTime(remaining)}${c.reset}`;
-
-  // ── 一時停止マーク ──
-  const pauseMark = isPaused
-    ? `  ${c.yellow}⏸  paused${c.reset}`
-    : '';
-
-  // ── パーセント ──
-  const percent = isIdle ? '' :
-    `${c.smoke}${Math.round(((totalTime - remaining) / totalTime) * 100)}%${c.reset}`;
-
-  // ── セッションドット ──
+  const pauseMark = isPaused ? `  ${c.yellow}⏸  paused${c.reset}` : '';
+  const percent = isIdle ? '' : `${c.smoke}${Math.round(((totalTime - remaining) / totalTime) * 100)}%${c.reset}`;
   const sessionDots = getSessionDots(session, totalSessions);
-
-  // ── プログレスバー ──
   const bar = getProgressBar(remaining, totalTime, 26);
-
-  // ── ヘッダー ──
   const title = `${c.bold}${c.white}P O M O D O R O${c.reset}`;
   const ver = `${c.charcoal}v${pkg.version}${c.reset}`;
 
-  // ── 組み立て ──
   const lines = [
-    ``,
+    '',
     top,
-
-    // タイトル行
-    `${c.gray}│${c.reset} ${center(title, W)} ${c.gray}│${c.reset}`,
+    `${c.gray}│${c.reset} ${centerStr(title, W)} ${c.gray}│${c.reset}`,
     sep,
-
     blank(),
-
-    // 時刻 + 状態
-    row(
-      `  ${timeDisplay}` +
-      `    ${c.bold}${stateLabel}${c.reset}` +
-      pauseMark
-    ),
-
+    row(`  ${timeDisplay}    ${c.bold}${stateLabel}${c.reset}${pauseMark}`),
     blank(),
-
-    // プログレスバー + パーセント
     row(`  ${bar}  ${percent}`),
-
     blank(),
-
-    // セッションドット + バージョン
     `${c.gray}│${c.reset} ${padDisplay(`  ${sessionDots}`, W - displayWidth(ver) - 1)}${ver} ${c.gray}│${c.reset}`,
-
     bot,
-    ``,
+    '',
   ];
 
   logUpdate(lines.join('\n'));
@@ -247,10 +190,8 @@ function renderTimer() {
 // ── タイマーロジック ──────────────────────────────────────
 async function tick() {
   if (timerState.state === STATE.IDLE || timerState.isPaused) return;
-
   timerState.remaining--;
   renderTimer();
-
   if (timerState.remaining <= 0) {
     await handleTimerComplete();
   }
@@ -263,27 +204,19 @@ async function handleTimerComplete() {
     if (timerState.session >= SESSIONS_BEFORE_LONG_BREAK) {
       timerState.state = STATE.BREAK;
       timerState.remaining = LONG_BREAK;
-      log('success', '🎉 4セッション完了！長い休憩に入りましょう (15分)');
       timerState.session = 1;
     } else {
       timerState.state = STATE.BREAK;
       timerState.remaining = SHORT_BREAK;
-      log('success', `セッション ${timerState.session} 完了！短い休憩 (5分)`);
       timerState.isPaused = false;
     }
   } else {
-    if (timerState.remaining === LONG_BREAK) {
-      log('success', '長い休憩終了！新しいポモドーロを始めましょう');
-      timerState.state = STATE.IDLE;
-      timerState.isPaused = false;
-    } else {
-      if (timerState.session < SESSIONS_BEFORE_LONG_BREAK) {
-        timerState.session++;
-      }
-      timerState.state = STATE.WORKING;
-      timerState.remaining = WORK_TIME;
-      timerState.isPaused = false;
+    if (timerState.session < SESSIONS_BEFORE_LONG_BREAK) {
+      timerState.session++;
     }
+    timerState.state = STATE.WORKING;
+    timerState.remaining = WORK_TIME;
+    timerState.isPaused = false;
   }
 
   renderTimer();
@@ -305,7 +238,12 @@ function stopTimerLoop() {
 
 // ── メニュー ──────────────────────────────────────────────
 async function showMenu() {
+  // logUpdate の最終出力を「確定テキスト」として固定してから
+  // inquirer に stdout を渡す。こうすれば inquirer は自分が
+  // 描いた行数だけを管理できるので、カーソルがズレない。
+  logUpdate.done();
   isMenuOpen = true;
+
   const result = await select({
     message: 'アクションを選択:',
     choices: [
@@ -316,12 +254,12 @@ async function showMenu() {
       { name: '×   Exit     終了', value: 'exit' },
     ],
   });
+
   isMenuOpen = false;
   return result;
 }
 
 async function handleSettings() {
-  isMenuOpen = true;
   const cur = {
     work: Math.floor(WORK_TIME / 60),
     shortBreak: Math.floor(SHORT_BREAK / 60),
@@ -340,10 +278,7 @@ async function handleSettings() {
     ],
   });
 
-  if (setting === 'back') {
-    isMenuOpen = false;
-    return;
-  }
+  if (setting === 'back') return;
 
   const value = await input({
     message: `新しい値を入力 (分):`,
@@ -351,27 +286,21 @@ async function handleSettings() {
     validate: (v) => (!isNaN(v) && parseInt(v) > 0) || '正の整数を入力してください',
   });
 
-  isMenuOpen = false;
-
   const minutes = parseInt(value);
 
   switch (setting) {
     case 'work':
       WORK_TIME = minutes * 60;
       if (timerState.state === STATE.IDLE) timerState.remaining = WORK_TIME;
-      log('success', `作業時間 → ${minutes} 分`);
       break;
     case 'shortBreak':
       SHORT_BREAK = minutes * 60;
-      log('success', `短い休憩 → ${minutes} 分`);
       break;
     case 'longBreak':
       LONG_BREAK = minutes * 60;
-      log('success', `長い休憩 → ${minutes} 分`);
       break;
     case 'sessions':
       timerState.totalSessions = minutes;
-      log('success', `セッション数 → ${minutes}`);
       break;
   }
 }
@@ -379,10 +308,10 @@ async function handleSettings() {
 // ── エントリポイント ──────────────────────────────────────
 async function main() {
   startTimerLoop();
+  clearScreen();
   renderTimer();
 
   while (true) {
-    logUpdate.clear();
     const choice = await showMenu();
 
     switch (choice) {
@@ -392,14 +321,10 @@ async function main() {
           timerState.remaining = WORK_TIME;
         }
         timerState.isPaused = false;
-        log('info', 'Started');
-        renderTimer();
         break;
 
       case 'stop':
         timerState.isPaused = true;
-        log('info', 'Paused');
-        renderTimer();
         break;
 
       case 'reset':
@@ -407,27 +332,29 @@ async function main() {
         timerState.remaining = WORK_TIME;
         timerState.session = 1;
         timerState.isPaused = false;
-        log('info', 'Reset');
-        renderTimer();
         break;
 
       case 'settings':
         await handleSettings();
-        renderTimer();
         break;
 
       case 'exit':
         stopTimerLoop();
-        logUpdate.clear();
-        consola.info('Bye 👋');
+        clearScreen();
+        console.log('Bye 👋');
         process.exit(0);
     }
+
+    // 選択後に画面をフルクリアして再描画
+    // → inquirer の残骸・確定テキストを完全排除してからタイマーを出す
+    clearScreen();
+    renderTimer();
   }
 }
 
 process.on('SIGINT', () => {
   stopTimerLoop();
-  logUpdate.clear();
+  clearScreen();
   process.exit(0);
 });
 
