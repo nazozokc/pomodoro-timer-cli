@@ -47,10 +47,7 @@ const c = {
   white: '\x1b[97m',
 };
 
-// logUpdate.clear() してから consola を呼ぶラッパー
-// → ボックスが残ったまま新行が追加される問題を防ぐ
 function log(type, msg) {
-  logUpdate.clear();
   consola[type](msg);
 }
 
@@ -286,6 +283,7 @@ async function main() {
   renderTimer();
 
   while (true) {
+    logUpdate.clear();
     const choice = await showMenu();
 
     switch (choice) {
