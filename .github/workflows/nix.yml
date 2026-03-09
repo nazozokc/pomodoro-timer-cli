@@ -8,8 +8,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,13 +19,9 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v13
 
-      - name: Enable flakes
-        run: |
-          echo "experimental-features = nix-command flakes" | sudo tee -a /etc/nix/nix.conf
-
       - name: Nix flake check
         run: nix flake check
-      
+
       - name: Build package
         run: nix build .#
 
