@@ -4,7 +4,17 @@ on:
   push:
     tags:
       - "v*"
+    paths:
+      - "**.nix"
+      - "flake.lock"
+      - "src/**"
+      - ".github/workflows/nix.yml"
   pull_request:
+    paths:
+      - "**.nix"
+      - "flake.lock"
+      - "src/**"
+      - ".github/workflows/nix.yml"
 
 jobs:
   build:
