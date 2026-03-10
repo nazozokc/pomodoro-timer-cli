@@ -1,10 +1,8 @@
 {
   description = "CLI Pomodoro Timer";
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
   };
-
   outputs =
     { self, nixpkgs }:
     let
@@ -33,12 +31,25 @@
           };
         }
       );
-
       apps = forAllSystems (system: {
         default = {
           type = "app";
           program = "${self.packages.${system}.default}/bin/pomodoro";
         };
       });
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
+          default = pkgs.mkShell {
+            buildInputs = [ pkgs.nodejs_20 ];
+            shellHook = ''
+              echo "🍅 pomodoro dev shell"
+            '';
+          };
+        }
+      );
     };
 }
