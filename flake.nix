@@ -22,10 +22,10 @@
         in
         {
           default = pkgs.buildNpmPackage {
-            pname = "pomodoro-cli";
+            pname = "@nazozokc/pomodoro-cli";
             version = "1.2.0";
             src = self;
-            npmDepsHash = "sha256-JfxaEc7pCP4rXlkvvNypEn7esZEDAq/rUFDxvCLDhLg=";
+            npmDepsHash = pkgs.lib.fakeHash;
             nodejs = pkgs.nodejs_20;
             dontNpmBuild = true;
           };
