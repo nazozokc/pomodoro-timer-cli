@@ -64,6 +64,9 @@ function displayWidth(str) {
     if (
       (cp >= 0x1F000 && cp <= 0x1FFFF) ||
       (cp >= 0x2600 && cp <= 0x27BF) ||
+      // Geometric Shapes (●◆◇▶ など) — ターミナルは幅2で描画することが多い
+      // ただし Block Elements (▏▎▍▌▋▊▉█▒ = 0x2580-0x259F) は幅1なので除外
+      (cp >= 0x25A0 && cp <= 0x25FF) ||
       (cp >= 0x3000 && cp <= 0x9FFF) ||
       (cp >= 0xF900 && cp <= 0xFAFF) ||
       (cp >= 0xFE30 && cp <= 0xFE4F) ||
@@ -152,7 +155,7 @@ function buildTimerRows() {
 
   const stateWord = isWorking ? 'FOCUS' : isBreak ? 'BREAK' : 'IDLE';
   const rightPart = `${accent}●  ${stateWord}${c.reset}`;
-  const rightW = 1 + 2 + stateWord.length;
+  const rightW = 2 + 2 + stateWord.length; // ● は幅2
 
   const midSpaces = Math.max(2, W - leftW - rightW);
   const timeLine = `${leftPart}${' '.repeat(midSpaces)}${rightPart}`;
