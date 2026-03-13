@@ -36,7 +36,7 @@ let timerState = {
   session: 1,
   totalSessions: SESSIONS_BEFORE_LONG_BREAK,
   isPaused: false,
-  breakType: null, // [fix] 'short' | 'long' | null
+  breakType: null, // 'short' | 'long' | null
 };
 
 // ── ANSI ─────────────────────────────────────────────────
@@ -62,15 +62,11 @@ function displayWidth(str) {
   for (const ch of plain) {
     const cp = ch.codePointAt(0);
     if (
-      (cp >= 0x1F000 && cp <= 0x1FFFF) ||
-      (cp >= 0x2600 && cp <= 0x27BF) ||
-      // Geometric Shapes (●◆◇▶ など) — ターミナルは幅2で描画することが多い
-      // ただし Block Elements (▏▎▍▌▋▊▉█▒ = 0x2580-0x259F) は幅1なので除外
-      (cp >= 0x25A0 && cp <= 0x25FF) ||
-      (cp >= 0x3000 && cp <= 0x9FFF) ||
+      (cp >= 0x1F000 && cp <= 0x1FFFF) ||  // 絵文字 (🎉 など)
+      (cp >= 0x3000 && cp <= 0x9FFF) ||   // CJK（日本語・漢字など）
       (cp >= 0xF900 && cp <= 0xFAFF) ||
       (cp >= 0xFE30 && cp <= 0xFE4F) ||
-      (cp >= 0xFF00 && cp <= 0xFF60)
+      (cp >= 0xFF00 && cp <= 0xFF60)        // 全角英数
     ) {
       width += 2;
     } else {
@@ -140,7 +136,6 @@ function buildTimerRows() {
   const isBreak = state === STATE.BREAK;
   const accent = isWorking ? c.amber : isBreak ? c.mint : c.slate;
 
-  // [fix] breakType で明示的に判定
   const totalTime = isWorking
     ? WORK_TIME
     : isBreak
@@ -149,13 +144,13 @@ function buildTimerRows() {
 
   // 時間 + 状態 (両端揃え)
   const timeRaw = formatTime(remaining);
-  const pauseTag = isPaused ? `  ${c.yellow}⏸${c.reset}` : '';
+  const pauseTag = isPaused ? `  ${c.yellow}|| ${c.reset}` : '';
   const leftPart = ` ${c.bold}${accent}${timeRaw}${c.reset}${pauseTag}`;
-  const leftW = 1 + 5 + (isPaused ? 3 : 0);
+  const leftW = 1 + 5 + (isPaused ? 4 : 0);
 
   const stateWord = isWorking ? 'FOCUS' : isBreak ? 'BREAK' : 'IDLE';
-  const rightPart = `${accent}●  ${stateWord}${c.reset}`;
-  const rightW = 2 + 2 + stateWord.length; // ● は幅2
+  const rightPart = `${accent}*  ${stateWord}${c.reset}`;
+  const rightW = 1 + 2 + stateWord.length;
 
   const midSpaces = Math.max(2, W - leftW - rightW);
   const timeLine = `${leftPart}${' '.repeat(midSpaces)}${rightPart}`;
@@ -164,7 +159,7 @@ function buildTimerRows() {
   const barW = W - 7;
   const bar = getProgressBar(remaining, totalTime, barW);
   const pct = isIdle
-    ? `${c.charcoal}  ─%${c.reset}`
+    ? `${c.charcoal}  -%${c.reset}`
     : `${c.smoke}${Math.round(((totalTime - remaining) / totalTime) * 100).toString().padStart(3)}%${c.reset}`;
   const barLine = ` ${bar}  ${pct}`;
 
@@ -201,17 +196,17 @@ function buildHintRow() {
 
 // ── メニュー行 ────────────────────────────────────────────
 const MENU_ITEMS = [
-  { label: '▶  Start      開始', key: 's' },
-  { label: '⏸  Pause      停止', key: 'p' },
-  { label: '↺  Reset      リセット', key: 'r' },
-  { label: '⚙  Settings   設定', key: 'c' },
-  { label: '×  Exit       終了', key: 'q' },
+  { label: '>  Start      開始', key: 's' },
+  { label: '|| Pause      停止', key: 'p' },
+  { label: 'o  Reset      リセット', key: 'r' },
+  { label: '*  Settings   設定', key: 'c' },
+  { label: 'x  Exit       終了', key: 'q' },
 ];
 
 function buildMenuRows() {
   const items = MENU_ITEMS.map((item, i) => {
     const sel = i === menuIndex;
-    const cursor = sel ? `${c.amber}${c.bold}❯${c.reset}` : '  ';
+    const cursor = sel ? `${c.amber}${c.bold}>${c.reset}` : ' ';
     const label = sel
       ? `${c.white}${c.bold}${item.label}${c.reset}`
       : `${c.smoke}${item.label}${c.reset}`;
@@ -220,7 +215,7 @@ function buildMenuRows() {
   return [
     ...items,
     sep(),
-    row(` ${c.charcoal}↑↓ navigate · ⏎ select · ESC cancel${c.reset}`),
+    row(` ${c.charcoal}↑↓ navigate · Enter select · ESC cancel${c.reset}`),
   ];
 }
 
@@ -231,14 +226,14 @@ function currentSettings() {
     { label: `短い休憩     ${String(Math.floor(SHORT_BREAK / 60)).padStart(2)} min`, key: 'shortBreak' },
     { label: `長い休憩     ${String(Math.floor(LONG_BREAK / 60)).padStart(2)} min`, key: 'longBreak' },
     { label: `セッション数   ${timerState.totalSessions}`, key: 'sessions' },
-    { label: '← Back', key: 'back' },
+    { label: '< Back', key: 'back' },
   ];
 }
 
 function buildSettingsRows() {
   const items = currentSettings().map((item, i) => {
     const sel = i === settingsIndex;
-    const cursor = sel ? `${c.mint}${c.bold}❯${c.reset}` : '  ';
+    const cursor = sel ? `${c.mint}${c.bold}>${c.reset}` : ' ';
     const label = sel
       ? `${c.white}${c.bold}${item.label}${c.reset}`
       : `${c.smoke}${item.label}${c.reset}`;
@@ -247,7 +242,7 @@ function buildSettingsRows() {
   return [
     ...items,
     sep(),
-    row(` ${c.charcoal}↑↓ navigate · ⏎ select · ESC cancel${c.reset}`),
+    row(` ${c.charcoal}↑↓ navigate · Enter select · ESC cancel${c.reset}`),
   ];
 }
 
@@ -260,14 +255,14 @@ function buildInputRows() {
     sessions: 'セッション数',
   };
   const labelStr = `${c.smoke}${labels[inputTarget] || ''}${c.reset}`;
-  const inputStr = `${c.bold}${c.amber}${inputBuffer || ' '}▌${c.reset}`;
+  const inputStr = `${c.bold}${c.amber}${inputBuffer || ' '}|${c.reset}`;
   return [
     blank(),
     row(`  ${labelStr}`),
     row(`  ${inputStr}`),
     blank(),
     sep(),
-    row(` ${c.charcoal}数値を入力 · ⏎ 確定 · ESC キャンセル${c.reset}`),
+    row(` ${c.charcoal}数値を入力 · Enter 確定 · ESC キャンセル${c.reset}`),
   ];
 }
 
@@ -323,20 +318,18 @@ function handleTimerComplete() {
 
   if (wasWorking) {
     if (timerState.session >= timerState.totalSessions) {
-      // [fix] isPaused リセット追加、breakType を 'long' にセット
       timerState.state = STATE.BREAK;
       timerState.remaining = LONG_BREAK;
       timerState.session = 1;
       timerState.isPaused = false;
       timerState.breakType = 'long';
-      notify('🎉 全セッション完了！長い休憩', c.amber);
+      notify('全セッション完了！長い休憩', c.amber);
     } else {
-      // [fix] breakType を 'short' にセット
       timerState.state = STATE.BREAK;
       timerState.remaining = SHORT_BREAK;
       timerState.isPaused = false;
       timerState.breakType = 'short';
-      notify(`✓ セッション${timerState.session}完了！短い休憩 (5分)`, c.mint);
+      notify(`セッション${timerState.session}完了！短い休憩 (5分)`, c.mint);
     }
   } else {
     if (timerState.session < timerState.totalSessions) {
@@ -346,7 +339,7 @@ function handleTimerComplete() {
     timerState.remaining = WORK_TIME;
     timerState.isPaused = false;
     timerState.breakType = null;
-    notify('▶ 作業開始！', c.amber);
+    notify('作業開始！', c.amber);
   }
 }
 
@@ -420,7 +413,7 @@ function handleKey(key) {
       const val = parseInt(inputBuffer);
       if (!isNaN(val) && val > 0) {
         applySettings(inputTarget, val);
-        notify(`✓ ${inputTarget} → ${val}`, c.mint);
+        notify(`${inputTarget} -> ${val}`, c.mint);
         mode = 'settings_select';
       } else {
         notify('正の整数を入力してください', c.red);
@@ -440,12 +433,12 @@ function actionStart() {
     timerState.breakType = null;
   }
   timerState.isPaused = false;
-  notify('▶ Started', c.amber);
+  notify('Started', c.amber);
 }
 
 function actionPause() {
   timerState.isPaused = !timerState.isPaused;
-  notify(timerState.isPaused ? '⏸ Paused' : '▶ Resumed', c.yellow);
+  notify(timerState.isPaused ? 'Paused' : 'Resumed', c.yellow);
 }
 
 function actionReset() {
@@ -454,7 +447,7 @@ function actionReset() {
   timerState.session = 1;
   timerState.isPaused = false;
   timerState.breakType = null;
-  notify('↺ Reset', c.smoke);
+  notify('Reset', c.smoke);
 }
 
 function applySettings(key, val) {
@@ -465,14 +458,12 @@ function applySettings(key, val) {
       break;
     case 'shortBreak':
       SHORT_BREAK = val * 60;
-      // 現在 short break 中なら残り時間も更新
       if (timerState.state === STATE.BREAK && timerState.breakType === 'short') {
         timerState.remaining = SHORT_BREAK;
       }
       break;
     case 'longBreak':
       LONG_BREAK = val * 60;
-      // 現在 long break 中なら残り時間も更新
       if (timerState.state === STATE.BREAK && timerState.breakType === 'long') {
         timerState.remaining = LONG_BREAK;
       }
@@ -487,7 +478,7 @@ function exit() {
   clearInterval(intervalId);
   logUpdate.done();
   process.stdout.write('\x1b[?25h');
-  console.log('\nBye 👋');
+  console.log('\nBye');
   process.exit(0);
 }
 
