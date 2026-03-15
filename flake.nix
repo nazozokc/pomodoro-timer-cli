@@ -47,6 +47,8 @@
             buildInputs = [
               pkgs.nodejs_20 # >=20.17.0 required by mute-stream
               pkgs.nodejs_20.pkgs.npm # npm を明示
+              pkgs.claude-code
+              pkgs.neovim
             ];
             shellHook = ''
               echo "🍅 pomodoro dev shell (node $(node --version))"
